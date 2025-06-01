@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>URL Shortener</title>
+    <script src="https://cdn.jsdelivr.net/npm/react@18.2.0/umd/react.production.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/react-dom@18.2.0/umd/react-dom.production.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios@1.4.0/dist/axios.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@babel/standalone@7.22.9/babel.min.js"></script>
+</head>
+
+<body>
+    <div id="root"></div>
+    <script type="text/babel">
+        const { useState } = React;
+
+        const Shortener = () => {
+            const [url, setUrl] = useState('');
+            const [shortUrl, setShortUrl] = useState('');
+            const [error, setError] = useState('');
+
+            const handleSubmit = async (e) => {
+                e.preventDefault();
+                setError('');
+                setShortUrl('');
+                try {
+                    const response = await axios.post('YOUR_API_GATEWAY_URL/shorten', { url });
+                    setShortUrl(response.data.shortUrl);
+                } catch (err) {
+                    setError('Failed to shorten URL');
+                }
+            };
+
+            return (
+                <div className="container mx-auto p-4">
+                    <h1 className="text-2xl font-bold mb-4">URL Shortener</h1>
+                    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+                        <input
+                            type="text"
+                            value={url}
+                            onChange={(e) => setUrl(e.target.value)}
+                            placeholder="Enter URL to shorten"
+                            className="p-2 border rounded"
+                        />
+                        <button type="submit" className="bg-blue-500 text-white p-2 rounded">
+                            Shorten
+                        </button>
+                    </form>
+                    {shortUrl && (
+                        <p className="mt-4">
+                            Shortened URL: <a href={shortUrl} className="text-blue-500">{shortUrl}</a>
+                        </p>
+                    )}
+                    {error && <p className="mt-4 text-red-500">{error}</p>}
+                </div>
+            );
+        };
+
+        ReactDOM.render(<Shortener />, document.getElementById('root'));
+    </script>
+</body>
+
+</html>

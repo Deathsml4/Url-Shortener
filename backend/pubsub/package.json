@@ -1,0 +1,12 @@
+{
+    "name": "url-shortener-pubsub",
+    "version": "1.0.0",
+    "main": "pubsub.js",
+    "dependencies": {
+        "@azure/eventgrid": "^4.14.0",
+        "redis": "^4.6.7"
+    },
+    "scripts": {
+        "start": "func start"
+    }
+}

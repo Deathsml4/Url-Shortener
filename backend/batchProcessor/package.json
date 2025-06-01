@@ -1,0 +1,11 @@
+{
+    "name": "url-shortener-batchprocessor",
+    "version": "1.0.0",
+    "main": "batchProcessor.js",
+    "dependencies": {
+        "@azure/storage-queue": "^12.12.0"
+    },
+    "scripts": {
+        "start": "func start"
+    }
+}

@@ -1,0 +1,11 @@
+{
+    "bindings": [
+        {
+            "name": "inputMessage",
+            "type": "queueTrigger",
+            "direction": "in",
+            "queueName": "write-queue",
+            "connection": "STORAGE_CONNECTION_STRING"
+        }
+    ]
+}
