@@ -1,0 +1,317 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Resources:
+  WriteQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: WriteQueue
+  ReadQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: ReadQueue
+  RedisSubnetGroup:
+    Type: AWS::ElastiCache::SubnetGroup
+    Properties:
+      Description: Subnet group for ElastiCache Redis
+      SubnetIds:
+        - !Ref Subnet1
+        - !Ref Subnet2
+  RedisSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId: !Ref VPCId
+      GroupDescription: Security group for ElastiCache Redis
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 6379
+          ToPort: 6379
+          SourceSecurityGroupId: !Ref ECSSecurityGroupId
+  RedisCluster:
+    Type: AWS::ElastiCache::CacheCluster
+    DependsOn:
+      - RedisSubnetGroup
+      - RedisSecurityGroup
+    Properties:
+      Engine: redis
+      CacheNodeType: cache.t2.micro
+      NumCacheNodes: 1
+      ClusterName: UrlShortenerRedis
+      CacheSubnetGroupName: !Ref RedisSubnetGroup
+      VpcSecurityGroupIds:
+        - !Ref RedisSecurityGroup
+  ECSExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+  ECSTaskExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: ecsTaskExecutionRole
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: 
+              - sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+        - arn:aws:iam::aws:policy/AmazonSQSFullAccess
+        - arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryFullAccess
+        - arn:aws:iam::aws:policy/AmazonElastiCacheFullAccess
+        - arn:aws:iam::aws:policy/AmazonRDSFullAccess
+      Policies:
+        - PolicyName: CloudWatchLogsCreateLogGroup
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                Resource: !Sub arn:aws:logs:us-east-1:739275441152:log-group:/ecs/*:*  
+  GatewayTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    DependsOn: ECSExecutionRole
+    Properties:
+      Family: url-shortener-gateway
+      Cpu: 256
+      Memory: 512
+      NetworkMode: awsvpc
+      ExecutionRoleArn: !GetAtt ECSTaskExecutionRole.Arn
+      RequiresCompatibilities:
+        - FARGATE
+      ContainerDefinitions:
+        - Name: gateway
+          Image: !Sub 739275441152.dkr.ecr.us-east-1.amazonaws.com/url-shortener:latest
+          Essential: true
+          PortMappings:
+            - ContainerPort: 3000
+          Environment:
+            - Name: AWS_REGION
+              Value: !Ref AWS::Region
+            - Name: WRITE_QUEUE_URL
+              Value: !Ref WriteQueue
+            - Name: READ_QUEUE_URL
+              Value: !Ref ReadQueue
+            - Name: REDIS_HOST
+              Value: !GetAtt RedisCluster.RedisEndpoint.Address
+            - Name: PG_HOST
+              Value: !Ref PGHost
+            - Name: PG_USER
+              Value: !Ref PGUser
+            - Name: PG_PASSWORD
+              Value: !Ref PGPassword
+            - Name: PG_DATABASE
+              Value: !Ref PGDatabase
+            - Name: PG_PORT
+              Value: '5432'
+  WriteWorkerTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    DependsOn: ECSExecutionRole
+    Properties:
+      Family: url-shortener-write-worker
+      Cpu: 256
+      Memory: 512
+      NetworkMode: awsvpc
+      ExecutionRoleArn: !GetAtt ECSTaskExecutionRole.Arn
+      RequiresCompatibilities:
+        - FARGATE
+      ContainerDefinitions:
+        - Name: write-worker
+          Image: !Sub 739275441152.dkr.ecr.us-east-1.amazonaws.com/url-shortener:latest
+          Essential: true
+          Command:
+            - node
+            - write-worker.js
+          Environment:
+            - Name: AWS_REGION
+              Value: !Ref AWS::Region
+            - Name: WRITE_QUEUE_URL
+              Value: !Ref WriteQueue
+            - Name: REDIS_HOST
+              Value: !GetAtt RedisCluster.RedisEndpoint.Address
+            - Name: PG_HOST
+              Value: !Ref PGHost
+            - Name: PG_USER
+              Value: !Ref PGUser
+            - Name: PG_PASSWORD
+              Value: !Ref PGPassword
+            - Name: PG_DATABASE
+              Value: !Ref PGDatabase
+            - Name: PG_PORT
+              Value: '5432'
+  ReadWorkerTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    DependsOn: ECSExecutionRole
+    Properties:
+      Family: url-shortener-read-worker
+      Cpu: 256
+      Memory: 512
+      NetworkMode: awsvpc
+      ExecutionRoleArn: !GetAtt ECSTaskExecutionRole.Arn
+      RequiresCompatibilities:
+        - FARGATE
+      ContainerDefinitions:
+        - Name: read-worker
+          Image: !Sub 739275441152.dkr.ecr.us-east-1.amazonaws.com/url-shortener:latest
+          Essential: true
+          Command:
+            - node
+            - read-worker.js
+          Environment:
+            - Name: AWS_REGION
+              Value: !Ref AWS::Region
+            - Name: READ_QUEUE_URL
+              Value: !Ref ReadQueue
+            - Name: REDIS_HOST
+              Value: !GetAtt RedisCluster.RedisEndpoint.Address
+            - Name: PG_HOST
+              Value: !Ref PGHost
+            - Name: PG_USER
+              Value: !Ref PGUser
+            - Name: PG_PASSWORD
+              Value: !Ref PGPassword
+            - Name: PG_DATABASE
+              Value: !Ref PGDatabase
+            - Name: PG_PORT
+              Value: '5432'
+  ChannelListenerTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    DependsOn: ECSExecutionRole
+    Properties:
+      Family: url-shortener-channel-listener
+      Cpu: 256
+      Memory: 512
+      NetworkMode: awsvpc
+      ExecutionRoleArn: !GetAtt ECSTaskExecutionRole.Arn
+      RequiresCompatibilities:
+        - FARGATE
+      ContainerDefinitions:
+        - Name: channel-listener
+          Image: !Sub 739275441152.dkr.ecr.us-east-1.amazonaws.com/url-shortener:latest
+          Essential: true
+          Command:
+            - node
+            - channel-listener.js
+          Environment:
+            - Name: REDIS_HOST
+              Value: !GetAtt RedisCluster.RedisEndpoint.Address
+            - Name: PG_HOST
+              Value: !Ref PGHost
+            - Name: PG_USER
+              Value: !Ref PGUser
+            - Name: PG_PASSWORD
+              Value: !Ref PGPassword
+            - Name: PG_DATABASE
+              Value: !Ref PGDatabase
+            - Name: PG_PORT
+              Value: '5432'
+  GatewayService:
+    Type: AWS::ECS::Service
+    Properties:
+      Cluster: !Ref ECSCluster
+      ServiceName: UrlShortenerGatewayService
+      TaskDefinition: !Ref GatewayTaskDefinition
+      DesiredCount: 2
+      LaunchType: FARGATE
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          Subnets:
+            - !Ref Subnet1
+            - !Ref Subnet2
+          SecurityGroups:
+            - !Ref ECSSecurityGroupId
+  WriteWorkerService:
+    Type: AWS::ECS::Service
+    Properties:
+      Cluster: !Ref ECSCluster
+      ServiceName: UrlShortenerWriteWorkerService
+      TaskDefinition: !Ref WriteWorkerTaskDefinition
+      DesiredCount: 2
+      LaunchType: FARGATE
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          Subnets:
+            - !Ref Subnet1
+            - !Ref Subnet2
+          SecurityGroups:
+            - !Ref ECSSecurityGroupId
+  ReadWorkerService:
+    Type: AWS::ECS::Service
+    Properties:
+      Cluster: !Ref ECSCluster
+      ServiceName: UrlShortenerReadWorkerService
+      TaskDefinition: !Ref ReadWorkerTaskDefinition
+      DesiredCount: 2
+      LaunchType: FARGATE
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          Subnets:
+            - !Ref Subnet1
+            - !Ref Subnet2
+          SecurityGroups:
+            - !Ref ECSSecurityGroupId
+  ChannelListenerService:
+    Type: AWS::ECS::Service
+    Properties:
+      Cluster: !Ref ECSCluster
+      ServiceName: UrlShortenerChannelListenerService
+      TaskDefinition: !Ref ChannelListenerTaskDefinition
+      DesiredCount: 1
+      LaunchType: FARGATE
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          Subnets:
+            - !Ref Subnet1
+            - !Ref Subnet2
+          SecurityGroups:
+            - !Ref ECSSecurityGroupId
+  ECSCluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: UrlShortenerCluster
+  ECSSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId: !Ref VPCId
+      GroupDescription: Security group for ECS tasks
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 3000
+          ToPort: 3000
+          CidrIp: 0.0.0.0/0
+Parameters:
+  PGHost:
+    Type: String
+    Description: RDS PostgreSQL endpoint (host)
+  PGUser:
+    Type: String
+    Description: RDS PostgreSQL username
+  PGPassword:
+    Type: String
+    NoEcho: true
+    Description: RDS PostgreSQL password
+    MinLength: 8
+  PGDatabase:
+    Type: String
+    Description: RDS PostgreSQL database name
+  Subnet1:
+    Type: String
+    Description: First subnet ID for ECS
+  Subnet2:
+    Type: String
+    Description: Second subnet ID for ECS
+  ECSSecurityGroupId:
+    Type: String
+    Description: Security group ID for ECS tasks
+  VPCId:
+    Type: String
+    Description: ID của VPC chứa RDS, ECS và ElastiCache

@@ -1,0 +1,119 @@
+{
+    "taskDefinition": {
+        "taskDefinitionArn": "arn:aws:ecs:us-east-1:739275441152:task-definition/url-shortener-write-worker:11",
+        "containerDefinitions": [
+            {
+                "name": "write-worker",
+                "image": "739275441152.dkr.ecr.us-east-1.amazonaws.com/url-shortener:latest",
+                "cpu": 0,
+                "portMappings": [],
+                "essential": true,
+                "command": [
+                    "node",
+                    "write-worker.js"
+                ],
+                "environment": [
+                    {
+                        "name": "REDIS_HOST",
+                        "value": "urlshortenerredis.mrvdwn.0001.use1.cache.amazonaws.com"
+                    },
+                    {
+                        "name": "AWS_REGION",
+                        "value": "us-east-1"
+                    },
+                    {
+                        "name": "PG_PORT",
+                        "value": "5432"
+                    },
+                    {
+                        "name": "WRITE_QUEUE_URL",
+                        "value": "https://sqs.us-east-1.amazonaws.com/739275441152/WriteQueue"
+                    },
+                    {
+                        "name": "PG_HOST",
+                        "value": "url-shortener-db.cmnwyi0i2y3j.us-east-1.rds.amazonaws.com"
+                    },
+                    {
+                        "name": "PG_PASSWORD",
+                        "value": "Welcome123"
+                    },
+                    {
+                        "name": "PG_DATABASE",
+                        "value": "postgres"
+                    },
+                    {
+                        "name": "PG_USER",
+                        "value": "pgadmin"
+                    }
+                ],
+                "environmentFiles": [],
+                "mountPoints": [],
+                "volumesFrom": [],
+                "dockerSecurityOptions": [],
+                "ulimits": [],
+                "logConfiguration": {
+                    "logDriver": "awslogs",
+                    "options": {
+                        "awslogs-group": "/ecs/url-shortener-write-worker",
+                        "mode": "non-blocking",
+                        "awslogs-create-group": "true",
+                        "max-buffer-size": "25m",
+                        "awslogs-region": "us-east-1",
+                        "awslogs-stream-prefix": "ecs"
+                    },
+                    "secretOptions": []
+                },
+                "systemControls": [],
+                "credentialSpecs": []
+            }
+        ],
+        "family": "url-shortener-write-worker",
+        "executionRoleArn": "arn:aws:iam::739275441152:role/ecsTaskExecutionRole",
+        "networkMode": "awsvpc",
+        "revision": 11,
+        "volumes": [],
+        "status": "ACTIVE",
+        "requiresAttributes": [
+            {
+                "name": "com.amazonaws.ecs.capability.logging-driver.awslogs"
+            },
+            {
+                "name": "ecs.capability.execution-role-awslogs"
+            },
+            {
+                "name": "com.amazonaws.ecs.capability.ecr-auth"
+            },
+            {
+                "name": "com.amazonaws.ecs.capability.docker-remote-api.1.19"
+            },
+            {
+                "name": "com.amazonaws.ecs.capability.docker-remote-api.1.28"
+            },
+            {
+                "name": "ecs.capability.execution-role-ecr-pull"
+            },
+            {
+                "name": "com.amazonaws.ecs.capability.docker-remote-api.1.18"
+            },
+            {
+                "name": "ecs.capability.task-eni"
+            },
+            {
+                "name": "com.amazonaws.ecs.capability.docker-remote-api.1.29"
+            }
+        ],
+        "placementConstraints": [],
+        "compatibilities": [
+            "EC2",
+            "FARGATE"
+        ],
+        "requiresCompatibilities": [
+            "FARGATE"
+        ],
+        "cpu": "256",
+        "memory": "512",
+        "registeredAt": "2025-06-03T00:49:56.703000+07:00",
+        "registeredBy": "arn:aws:iam::739275441152:root"
+    },
+    "tags": []
+}
